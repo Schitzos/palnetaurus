@@ -6,6 +6,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { Direction } from '@palnetaurus/shared';
 import { useGameStore } from '../store/gameStore';
 import { MAPS, TERRAIN_CONFIG, getNextPosition, canMoveTo, TerrainType } from '../data/maps';
+import { shouldTriggerEncounter, pickWeightedEncounter, generateWildDino } from '../data/encounters';
 import { DPad } from '../components/DPad';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'WorldMap'>;
@@ -47,10 +48,14 @@ export function WorldMapScreen() {
 
     setWorld({ currentMapId: world.currentMapId, x: next.x, y: next.y });
 
-    // Encounter check (will be implemented in Phase 5)
-    if (config.encounterEnabled && config.encounterChance) {
-      if (Math.random() < config.encounterChance) {
-        navigation.navigate('Battle');
+    // Encounter check (Phase 5)
+    if (config.encounterEnabled && config.encounterTableId) {
+      if (shouldTriggerEncounter(tile)) {
+        const encounter = pickWeightedEncounter(config.encounterTableId);
+        if (encounter) {
+          const wildDino = generateWildDino(encounter);
+          navigation.navigate('Battle', { wildDino } as any);
+        }
       }
     }
   }, [world, map, setWorld, navigation]);
