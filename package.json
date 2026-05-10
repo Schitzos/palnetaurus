@@ -1,0 +1,18 @@
+{
+  "name": "palnetaurus",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "yarn workspace @palnetaurus/mobile",
+    "server": "yarn workspace @palnetaurus/server",
+    "shared": "yarn workspace @palnetaurus/shared",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

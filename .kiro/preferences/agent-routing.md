@@ -45,3 +45,42 @@ When the user calls multiple agents in one message (e.g., "@PM @SA @FE set up th
 - User says "team", "everyone", or "all agents"
 - User asks agents to collaborate on a task
 
+## Full Automation Mode
+
+When the user says **"execute phase X"**, **"run sprint"**, or **"auto-execute"**, run the full pipeline automatically:
+
+### Pipeline per task:
+
+```
+1. @PM creates/identifies the ticket (if not already created)
+2. @PM delegates to the assigned worker
+3. Worker moves ticket to In Progress
+4. Worker branches from develop: feature/[TASK-ID]-description
+5. Worker executes the task (writes code, creates files)
+6. Worker verifies:
+   - @FE: runs in emulator (or build check)
+   - @BE: runs with node
+   - @SYS/@ART: spec reviewed
+7. Worker commits and pushes
+8. Worker moves ticket to Review/QA
+9. @QA validates against acceptance criteria
+10. @QA moves to Done (or back to In Progress with comments)
+11. Loop to next task
+```
+
+### Automation rules:
+
+- Execute tasks in dependency order (blockers first)
+- Parallel tasks run in parallel (e.g., @FE and @BE can work simultaneously if no dependency)
+- If a task fails verification, fix it before moving on — do not skip
+- After all tasks in a phase complete, @PM reports status summary
+- No confirmation needed between tasks — full autonomous execution
+
+### Trigger phrases:
+- `execute phase 1` — runs all tasks in Phase 1
+- `execute phase 1-3` — runs Phases 1 through 3
+- `run sprint` — runs the next sprint's worth of tasks (~15-20 SP)
+- `auto-execute` — runs from current position until blocked or phase complete
+- `continue` — resumes after a pause or failure
+
+
