@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useGameStore } from '../store/gameStore';
 import { BattleDino, BattleAction, executeTurn, canUseSpecial, getAiAction } from '../data/battle';
+import { attemptCatch } from '../data/catch';
 import type { WildDino } from '../data/encounters';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Battle'>;
@@ -13,7 +14,7 @@ export function BattleScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
   const wildDinoData = (route.params as any)?.wildDino as WildDino | undefined;
-  const { dinos, triggerAutoSave } = useGameStore();
+  const { dinos, triggerAutoSave, inventory, updateInventory, addDino, updateDinopedia } = useGameStore();
 
   const playerDinoData = dinos.owned[0];
   if (!playerDinoData || !wildDinoData) {
@@ -49,6 +50,31 @@ export function BattleScreen() {
     if (battleOver) return;
 
     // Player turn
+    if (action === 'dino_ball') {
+      const balls = inventory['dino_ball'] || 0;
+      if (balls <= 0) { addLog('No Dino Balls!'); return; }
+      updateInventory('dino_ball', -1);
+      addLog('Threw a Dino Ball...');
+      const caught = attemptCatch(wildDino.speciesId, wildDino.currentHp, wildDino.maxHp, 'dino_ball');
+      if (caught) {
+        addLog(`Caught ${wildDino.speciesId}!`);
+        const newDino = { instanceId: `${wildDino.speciesId}_${Date.now()}`, speciesId: wildDino.speciesId, source: 'caught' as const, level: wildDino.level, exp: 0, currentHp: wildDino.currentHp, maxHp: wildDino.maxHp, currentSp: 0, maxSp: wildDino.maxSp, attack: wildDino.attack, defense: wildDino.defense, speed: wildDino.speed, heightMeter: 1.0, bond: 10, rideable: false, moves: wildDino.moves, specialMoveId: wildDino.specialMoveId };
+        addDino(newDino);
+        updateDinopedia({ dinoId: wildDino.speciesId, status: 'caught' });
+        setBattleOver(true);
+        triggerAutoSave();
+        setTimeout(() => navigation.goBack(), 1500);
+        return;
+      }
+      addLog('It broke free!');
+      // Wild dino gets a turn after failed catch
+      const aiAction = getAiAction(wildDino);
+      const eResult = executeTurn({ ...wildDino, isDefending: false }, playerDino, aiAction);
+      setPlayerDino((prev) => ({ ...prev, currentHp: Math.max(0, prev.currentHp - eResult.damage) }));
+      if (aiAction === 'attack') addLog(`Wild dino attacks! -${eResult.damage} HP`);
+      return;
+    }
+
     const pResult = executeTurn(
       { ...playerDino, isDefending: false },
       wildDino,
@@ -143,6 +169,9 @@ export function BattleScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={[s.btn, !canUseSpecial(playerDino.currentSp) && s.btnDisabled]} onPress={() => handleAction('special')} disabled={!canUseSpecial(playerDino.currentSp)}>
             <Text style={s.btnText}>Special</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.btn, !(inventory['dino_ball'] > 0) && s.btnDisabled]} onPress={() => handleAction('dino_ball')} disabled={!(inventory['dino_ball'] > 0)}>
+            <Text style={s.btnText}>Ball ({inventory['dino_ball'] || 0})</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.btn} onPress={() => handleAction('run')}>
             <Text style={s.btnText}>Run</Text>
