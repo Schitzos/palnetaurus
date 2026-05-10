@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -7,37 +7,53 @@ import type { Direction } from '@palnetaurus/shared';
 import { useGameStore } from '../store/gameStore';
 import { MAPS, TERRAIN_CONFIG, getNextPosition, canMoveTo, TerrainType } from '../data/maps';
 import { shouldTriggerEncounter, pickWeightedEncounter, generateWildDino } from '../data/encounters';
+import { canRideDino } from '../data/ride';
 import { DPad } from '../components/DPad';
+import { DSColors, DSSpacing } from '../theme/dsTheme';
+import { DSPanel } from '../components/DSPanel';
+import { DSText } from '../components/DSText';
+import { DSButton } from '../components/DSButton';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'WorldMap'>;
 
 const TILE_SIZE = 32;
 
 const TERRAIN_COLORS: Record<TerrainType, string> = {
-  path: '#c8b88a',
-  grass: '#4a7c3f',
-  wild_grass: '#2d5a1e',
-  tree: '#1a3a0a',
-  rock: '#5a5a5a',
-  water: '#2980b9',
-  portal: '#9b59b6',
+  path: '#D4C088',
+  grass: '#7CB342',
+  wild_grass: '#558B2F',
+  tree: '#2E7D32',
+  rock: '#78909C',
+  water: '#42A5F5',
+  portal: '#AB47BC',
 };
 
 export function WorldMapScreen() {
   const navigation = useNavigation<Nav>();
-  const { world, setWorld, player } = useGameStore();
+  const { world, setWorld, player, dinos, isRiding, mountedDinoId, setRiding } = useGameStore();
   const map = MAPS[world.currentMapId];
+
+  const rideableDino = dinos.owned.find((d) => canRideDino(d));
+
+  const toggleRide = () => {
+    if (isRiding) { setRiding(null); return; }
+    if (rideableDino) setRiding(rideableDino.instanceId);
+  };
 
   const handleMove = useCallback((direction: Direction) => {
     if (!map) return;
-    const next = getNextPosition({ x: world.x, y: world.y }, direction);
+    const steps = isRiding ? 2 : 1;
+    let pos = { x: world.x, y: world.y };
+    for (let i = 0; i < steps; i++) {
+      const next = getNextPosition(pos, direction);
+      if (!canMoveTo(map, next.x, next.y)) break;
+      pos = next;
+    }
+    if (pos.x === world.x && pos.y === world.y) return;
 
-    if (!canMoveTo(map, next.x, next.y)) return;
-
-    const tile = map.tiles[next.y][next.x];
+    const tile = map.tiles[pos.y][pos.x];
     const config = TERRAIN_CONFIG[tile];
 
-    // Portal transition (MAP-005)
     if (tile === 'portal' && config.transitionTo) {
       const targetMap = MAPS[config.transitionTo];
       if (targetMap) {
@@ -46,9 +62,8 @@ export function WorldMapScreen() {
       return;
     }
 
-    setWorld({ currentMapId: world.currentMapId, x: next.x, y: next.y });
+    setWorld({ currentMapId: world.currentMapId, x: pos.x, y: pos.y });
 
-    // Encounter check (Phase 5)
     if (config.encounterEnabled && config.encounterTableId) {
       if (shouldTriggerEncounter(tile)) {
         const encounter = pickWeightedEncounter(config.encounterTableId);
@@ -58,62 +73,56 @@ export function WorldMapScreen() {
         }
       }
     }
-  }, [world, map, setWorld, navigation]);
+  }, [world, map, setWorld, navigation, isRiding]);
 
-  if (!map) return <View style={styles.container}><Text style={styles.hud}>Map not found</Text></View>;
+  if (!map) return (
+    <View style={s.container}>
+      <DSPanel variant="dialogue"><DSText size="sm">Map not found</DSText></DSPanel>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* HUD */}
-      <View style={styles.hudBar}>
-        <Text style={styles.hud}>{player?.name} • {map.name}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Team')}>
-          <Text style={styles.menuBtn}>☰</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={s.container}>
+      <DSPanel style={s.hudBar}>
+        <DSText size="xs">{player?.name}</DSText>
+        <DSText size="xs">{map.name}</DSText>
+        {isRiding && <DSText size="xs" style={s.ride}>🦕 RIDING</DSText>}
+      </DSPanel>
 
-      {/* Map Renderer */}
-      <View style={styles.mapContainer}>
+      <View style={s.mapContainer}>
         {map.tiles.map((row, y) => (
-          <View key={y} style={styles.row}>
+          <View key={y} style={s.row}>
             {row.map((tile, x) => (
-              <View key={`${x}-${y}`} style={[styles.tile, { backgroundColor: TERRAIN_COLORS[tile] }]}>
-                {x === world.x && y === world.y && <Text style={styles.player}>🧑</Text>}
+              <View key={`${x}-${y}`} style={[s.tile, { backgroundColor: TERRAIN_COLORS[tile] }]}>
+                {x === world.x && y === world.y && <DSText size="xs">{isRiding ? '🦕' : '🧑'}</DSText>}
               </View>
             ))}
           </View>
         ))}
       </View>
 
-      {/* D-Pad */}
       <DPad onPress={handleMove} />
 
-      {/* Quick Menu */}
-      <View style={styles.quickMenu}>
-        <TouchableOpacity style={styles.qBtn} onPress={() => navigation.navigate('Inventory')}>
-          <Text style={styles.qText}>🎒</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.qBtn} onPress={() => navigation.navigate('Dinopedia')}>
-          <Text style={styles.qText}>📖</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.qBtn} onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.qText}>⚙️</Text>
-        </TouchableOpacity>
+      <View style={s.quickMenu}>
+        {rideableDino && (
+          <DSButton label="🐎" onPress={toggleRide} style={isRiding ? { ...s.qBtn, ...s.qBtnActive } : s.qBtn} />
+        )}
+        <DSButton label="🎒" onPress={() => navigation.navigate('Inventory')} style={s.qBtn} />
+        <DSButton label="📖" onPress={() => navigation.navigate('Dinopedia')} style={s.qBtn} />
+        <DSButton label="⚙️" onPress={() => navigation.navigate('Settings')} style={s.qBtn} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e' },
-  hudBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 8 },
-  hud: { color: '#fff', fontSize: 14 },
-  menuBtn: { color: '#fff', fontSize: 24 },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: DSColors.background },
+  hudBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: DSSpacing.md, marginTop: 50, marginBottom: DSSpacing.sm },
+  ride: { color: DSColors.accent },
   mapContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   row: { flexDirection: 'row' },
   tile: { width: TILE_SIZE, height: TILE_SIZE, borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.1)', justifyContent: 'center', alignItems: 'center' },
-  player: { fontSize: 18 },
-  quickMenu: { position: 'absolute', bottom: 40, right: 24, gap: 8 },
-  qBtn: { width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  qText: { fontSize: 20 },
+  quickMenu: { position: 'absolute', bottom: 40, right: 24, gap: DSSpacing.sm },
+  qBtn: { width: 44, height: 44, paddingHorizontal: 0, paddingVertical: 0 },
+  qBtnActive: { borderColor: DSColors.accent, backgroundColor: '#3d3520' },
 });

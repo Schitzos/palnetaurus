@@ -20,12 +20,6 @@ export const Storage = {
   },
 };
 
-/**
- * Auto-save helper — call after key events:
- * - Map transition
- * - After catching a dinosaur
- * - After battle ends
- */
 export function autoSave(getState: () => {
   player: { id: string; name: string } | null;
   world: { currentMapId: string; x: number; y: number };
@@ -45,4 +39,8 @@ export function autoSave(getState: () => {
     dinopedia: state.dinopedia,
   };
   Storage.save(save);
+}
+
+export function clearSave(): void {
+  Storage.clear();
 }

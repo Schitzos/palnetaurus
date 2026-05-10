@@ -14,5 +14,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "react-native-mmkv": "^3.3.3",
+    "react-native-screens": "^4.24.0"
   }
 }
