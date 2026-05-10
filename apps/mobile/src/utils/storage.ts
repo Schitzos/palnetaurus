@@ -19,3 +19,30 @@ export const Storage = {
     return storage.contains(SAVE_KEY);
   },
 };
+
+/**
+ * Auto-save helper — call after key events:
+ * - Map transition
+ * - After catching a dinosaur
+ * - After battle ends
+ */
+export function autoSave(getState: () => {
+  player: { id: string; name: string } | null;
+  world: { currentMapId: string; x: number; y: number };
+  dinos: { owned: any[]; teamIds: string[] };
+  inventory: Record<string, number>;
+  dinopedia: Record<string, any>;
+}): void {
+  const state = getState();
+  if (!state.player) return;
+
+  const save: GameSave = {
+    version: 1,
+    player: state.player,
+    world: state.world,
+    dinos: state.dinos,
+    inventory: state.inventory,
+    dinopedia: state.dinopedia,
+  };
+  Storage.save(save);
+}
