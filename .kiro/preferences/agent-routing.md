@@ -54,7 +54,7 @@ When the user says **"execute phase X"**, **"run sprint"**, or **"auto-execute"*
 ```
 1. @PM creates/identifies the ticket (if not already created)
 2. @PM delegates to the assigned worker
-3. Worker moves ticket to In Progress
+3. Worker moves ticket to In Progress (gh project item-edit → In Progress)
 4. Worker branches from develop: feature/[TASK-ID]-description
 5. Worker executes the task (writes code, creates files)
 6. Worker verifies:
@@ -62,9 +62,9 @@ When the user says **"execute phase X"**, **"run sprint"**, or **"auto-execute"*
    - @BE: runs with node
    - @SYS/@ART: spec reviewed
 7. Worker commits and pushes
-8. Worker moves ticket to Review/QA
+8. Worker moves ticket to Review/QA (gh project item-edit → Review/QA)
 9. @QA validates against acceptance criteria
-10. @QA moves to Done (or back to In Progress with comments)
+10. @QA moves to Done (gh project item-edit → Done) — MANDATORY, never skip
 11. Loop to next task
 ```
 
